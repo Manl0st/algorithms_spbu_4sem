@@ -1,0 +1,9 @@
+lab1/__pycache__/
+lab1/.venv/
+lab1/cache/
+lab1/*.png
+lab1/ok.txt
+lab2/__pycache__/
+lab2/.venv/
+lab2/h.txt
+lab2/*.png
