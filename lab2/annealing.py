@@ -1,8 +1,10 @@
 import math
 import random
-import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
+import tkinter as tk
+from tkinter import ttk
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 from matrices import BERLIN52, WORLD666
 
 INF = float("inf")
@@ -16,12 +18,6 @@ MATRIX_1GRAPH = [
     [3,   INF, 1,   5,   4,   0],
 ]
 
-GRAPHS = {
-    0: ("Built-in (6 вершин)", MATRIX_1GRAPH),
-    1: ("BERLIN52 (52 города)", BERLIN52),
-    2: ("WORLD666 (666 городов)", WORLD666),
-}
-
 def route_cost(matrix, path):
     total = 0
     for i in range(len(path)):
@@ -30,12 +26,6 @@ def route_cost(matrix, path):
             return INF
         total += weight
     return total
-
-def load_graph(choice):
-    if choice in GRAPHS:
-        return GRAPHS[choice][1]
-    else:
-        return MATRIX_1GRAPH
 
 def random_path(matrix):
     base_path = list(range(len(matrix)))
@@ -63,7 +53,7 @@ def simulated_annealing(matrix, mode, t_start, t_min, alpha, iters_per_t):
     current_cost = route_cost(matrix, current)
     best_path = current[:]
     best_cost = current_cost
-    initial_cost = current_cost  # Запомним начальную стоимость
+    initial_cost = current_cost
     step = 0
     history_cost = [best_cost]
     history_temp = [t]
@@ -87,7 +77,6 @@ def simulated_annealing(matrix, mode, t_start, t_min, alpha, iters_per_t):
         step += 1
     
     return {
-        "mode": mode,
         "best_path": best_path,
         "best_cost": best_cost,
         "initial_cost": initial_cost,
@@ -96,170 +85,155 @@ def simulated_annealing(matrix, mode, t_start, t_min, alpha, iters_per_t):
         "history_temp": history_temp,
     }
 
-def get_graph_choice():
-    """Получить выбор графа от пользователя"""
-    print("\n=== Выбор графа ===")
-    for key, (name, _) in GRAPHS.items():
-        print(f"  {key}: {name}")
+class TSPGui:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("TSP Solver - Simulated Annealing")
+        self.root.geometry("900x600")
+        
+        self.graphs = {
+            0: ("Built-in (6)", MATRIX_1GRAPH),
+            1: ("BERLIN52 (52)", BERLIN52),
+            2: ("WORLD666 (666)", WORLD666),
+        }
+        
+        self.setup_ui()
     
-    while True:
+    def setup_ui(self):
+        # Левая панель - параметры
+        left = ttk.Frame(self.root)
+        left.pack(side=tk.LEFT, fill=tk.BOTH, padx=10, pady=10)
+        
+        # График
+        ttk.Label(left, text="График:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
+        self.graph_var = tk.IntVar(value=1)
+        for key, (name, _) in self.graphs.items():
+            ttk.Radiobutton(left, text=name, variable=self.graph_var, value=key).pack(anchor=tk.W)
+        
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        
+        # Режим
+        ttk.Label(left, text="Режим охлаждения:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
+        self.mode_var = tk.StringVar(value="classic")
+        ttk.Radiobutton(left, text="Classic (T=T×α)", variable=self.mode_var, value="classic").pack(anchor=tk.W)
+        ttk.Radiobutton(left, text="Cauchy (T=T₀/(1+n))", variable=self.mode_var, value="cauchy").pack(anchor=tk.W)
+        
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        
+        # Параметры
+        ttk.Label(left, text="Параметры:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
+        
+        ttk.Label(left, text="T_START:").pack(anchor=tk.W)
+        self.t_start = ttk.Entry(left, width=15)
+        self.t_start.insert(0, "100.0")
+        self.t_start.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(left, text="T_MIN:").pack(anchor=tk.W)
+        self.t_min = ttk.Entry(left, width=15)
+        self.t_min.insert(0, "0.089")
+        self.t_min.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(left, text="ALPHA (Classic):").pack(anchor=tk.W)
+        self.alpha = ttk.Entry(left, width=15)
+        self.alpha.insert(0, "0.95")
+        self.alpha.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(left, text="ITERS_PER_T:").pack(anchor=tk.W)
+        self.iters = ttk.Entry(left, width=15)
+        self.iters.insert(0, "30")
+        self.iters.pack(fill=tk.X, pady=2)
+        
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        
+        # Кнопка запуска
+        self.btn = ttk.Button(left, text="▶ Запустить", command=self.run)
+        self.btn.pack(fill=tk.X, pady=10)
+        
+        # Результаты
+        self.result_text = tk.Text(left, height=15, width=35, font=("Courier", 8))
+        self.result_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Правая панель - графики
+        self.right = ttk.Frame(self.root)
+        self.right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+    
+    def run(self):
         try:
-            choice = int(input("Введите номер графа (0-2): "))
-            if choice in GRAPHS:
-                return choice, len(GRAPHS[choice][1])
-            else:
-                print("Неверный выбор. Попробуйте снова.")
-        except ValueError:
-            print("Введите число.")
-
-def get_mode():
-    """Получить выбор режима охлаждения"""
-    print("\n=== Выбор режима охлаждения ===")
-    print("  0: Classic (T = T * ALPHA)")
-    print("  1: Cauchy (T = T_START / (1 + step))")
+            graph_idx = self.graph_var.get()
+            graph_name, matrix = self.graphs[graph_idx]
+            mode = self.mode_var.get()
+            t_start = float(self.t_start.get())
+            t_min = float(self.t_min.get())
+            alpha = float(self.alpha.get()) if mode == "classic" else 0.95
+            iters = int(self.iters.get())
+            
+            # Запустить алгоритм
+            self.btn.config(state=tk.DISABLED)
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, "⏳ Вычисляю...\n")
+            self.root.update()
+            
+            result = simulated_annealing(matrix, mode, t_start, t_min, alpha, iters)
+            
+            # Вывести результаты
+            text = f"График: {graph_name}\n"
+            text += f"Режим: {mode.upper()}\n"
+            text += f"T_START: {t_start}\n"
+            text += f"T_MIN: {t_min}\n"
+            text += f"ALPHA: {alpha}\n"
+            text += f"ITERS: {iters}\n\n"
+            text += f"Начально: {result['initial_cost']:.2f}\n"
+            text += f"Лучше: {result['best_cost']:.2f}\n"
+            imp = (result['initial_cost'] - result['best_cost']) / result['initial_cost'] * 100
+            text += f"Улучшение: {imp:.1f}%\n"
+            text += f"Шагов: {result['steps']}\n"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, text)
+            
+            # Построить графики
+            self.plot_results(result)
+            
+            self.btn.config(state=tk.NORMAL)
+        except Exception as e:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Ошибка: {e}")
+            self.btn.config(state=tk.NORMAL)
     
-    while True:
-        try:
-            choice = int(input("Введите номер режима (0 или 1): "))
-            if choice == 0:
-                return "classic"
-            elif choice == 1:
-                return "cauchy"
-            else:
-                print("Неверный выбор.")
-        except ValueError:
-            print("Введите число.")
-
-def get_parameters(mode):
-    """Получить параметры алгоритма"""
-    print("\n=== Параметры алгоритма ===")
-    
-    while True:
-        try:
-            t_start = float(input("T_START (начальная температура, например 100.0): "))
-            if t_start > 0:
-                break
-            print("T_START должна быть положительной.")
-        except ValueError:
-            print("Введите число.")
-    
-    while True:
-        try:
-            t_min = float(input("T_MIN (минимальная температура, например 0.089): "))
-            if 0 < t_min < t_start:
-                break
-            print(f"T_MIN должна быть между 0 и {t_start}.")
-        except ValueError:
-            print("Введите число.")
-    
-    if mode == "classic":
-        while True:
-            try:
-                alpha = float(input("ALPHA (коэффициент охлаждения, 0.9-0.99): "))
-                if 0 < alpha < 1:
-                    break
-                print("ALPHA должна быть между 0 и 1.")
-            except ValueError:
-                print("Введите число.")
-    else:
-        alpha = None  # Не используется для режима Cauchy
-    
-    while True:
-        try:
-            iters_per_t = int(input("ITERS_PER_T (итераций при каждой температуре, например 30): "))
-            if iters_per_t > 0:
-                break
-            print("ITERS_PER_T должна быть положительной.")
-        except ValueError:
-            print("Введите число.")
-    
-    return t_start, t_min, alpha, iters_per_t
-
-def print_results(result, graph_name, graph_size):
-    """Вывести результаты"""
-    print("\n" + "="*60)
-    print("РЕЗУЛЬТАТЫ РАБОТЫ АЛГОРИТМА")
-    print("="*60)
-    
-    print("\n[ПАРАМЕТРЫ]")
-    print(f"  График: {graph_name} ({graph_size} вершин)")
-    print(f"  Режим охлаждения: {result['mode'].upper()}")
-    print(f"  T_START: {result.get('t_start', 'N/A')}")
-    print(f"  T_MIN: {result.get('t_min', 'N/A')}")
-    if result.get('alpha') is not None:
-        print(f"  ALPHA: {result['alpha']}")
-    print(f"  ITERS_PER_T: {result.get('iters_per_t', 'N/A')}")
-    
-    print("\n[РЕЗУЛЬТАТЫ]")
-    initial = result.get('initial_cost')
-    best = result['best_cost']
-    if initial is not None and isinstance(initial, (int, float)) and initial > 0:
-        improvement = ((initial - best) / initial * 100)
-        print(f"  Начальная длина пути: {initial:.2f}")
-        print(f"  Лучшая длина пути: {best:.2f}")
-        print(f"  Улучшение: {improvement:.1f}%")
-    else:
-        print(f"  Лучшая длина пути: {best:.2f}")
-    print(f"  Шагов охлаждения: {result['steps']}")
-    if graph_size <= 10:
-        print(f"  Лучший путь: {result['best_path']}")
-    else:
-        print(f"  Лучший путь (первые 10): {result['best_path'][:10]} ...")
-    
-    print("\n" + "="*60 + "\n")
-
-def plot_results(result):
-    """Отобразить два графика"""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-    
-    # График 1: Лучшая стоимость vs шаги
-    steps = list(range(len(result['history_cost'])))
-    ax1.plot(steps, result['history_cost'], linewidth=1.5, color='blue')
-    ax1.set_xlabel('Шаг охлаждения', fontsize=11)
-    ax1.set_ylabel('Лучшая длина пути', fontsize=11)
-    ax1.set_title('Сходимость алгоритма', fontsize=12, fontweight='bold')
-    ax1.grid(True, alpha=0.3)
-    
-    # График 2: Температура vs шаги
-    ax2.plot(steps, result['history_temp'], linewidth=1.5, color='red')
-    ax2.set_xlabel('Шаг охлаждения', fontsize=11)
-    ax2.set_ylabel('Температура', fontsize=11)
-    ax2.set_title('Охлаждение температуры', fontsize=12, fontweight='bold')
-    ax2.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    filename = "tsp_results.png"
-    plt.savefig(filename, dpi=100)
-    print(f"\n📊 Графики сохранены в: {filename}")
-    plt.close()
-
-def main():
-    print("\n╔═══════════════════════════════════════════╗")
-    print("║  SIMULATED ANNEALING - TSP SOLVER        ║")
-    print("╚═══════════════════════════════════════════╝")
-    
-    # Получить параметры
-    graph_choice, graph_size = get_graph_choice()
-    graph_name = GRAPHS[graph_choice][0]
-    mode = get_mode()
-    t_start, t_min, alpha, iters_per_t = get_parameters(mode)
-    
-    # Запустить алгоритм
-    print("\n⏳ Выполняется поиск оптимального маршрута...")
-    matrix = load_graph(graph_choice)
-    result = simulated_annealing(matrix, mode, t_start, t_min, alpha, iters_per_t)
-    
-    # Сохранить параметры в результат для вывода
-    result['t_start'] = t_start
-    result['t_min'] = t_min
-    result['alpha'] = alpha
-    result['iters_per_t'] = iters_per_t
-    
-    # Вывести результаты
-    print_results(result, graph_name, graph_size)
-    
-    # Показать графики
-    plot_results(result)
+    def plot_results(self, result):
+        # Очистить старые графики
+        for widget in self.right.winfo_children():
+            widget.destroy()
+        
+        # Создать фигуру
+        fig = Figure(figsize=(5, 5), dpi=80)
+        ax1 = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
+        
+        steps = list(range(len(result['history_cost'])))
+        
+        # График 1: Сходимость
+        ax1.plot(steps, result['history_cost'], 'b-', linewidth=1)
+        ax1.set_xlabel('Шаг')
+        ax1.set_ylabel('Стоимость')
+        ax1.set_title('Сходимость')
+        ax1.grid(True, alpha=0.3)
+        
+        # График 2: Температура
+        ax2.plot(steps, result['history_temp'], 'r-', linewidth=1)
+        ax2.set_xlabel('Шаг')
+        ax2.set_ylabel('T')
+        ax2.set_title('Температура')
+        ax2.grid(True, alpha=0.3)
+        
+        fig.tight_layout()
+        
+        # Встроить в GUI
+        canvas = FigureCanvasTkAgg(fig, master=self.right)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = TSPGui(root)
+    root.mainloop()
