@@ -1,5 +1,6 @@
 import math
 import random
+import time
 import tkinter as tk
 from tkinter import ttk
 import matplotlib.pyplot as plt
@@ -88,8 +89,9 @@ def simulated_annealing(matrix, mode, t_start, t_min, alpha, iters_per_t):
 class TSPGui:
     def __init__(self, root):
         self.root = root
-        self.root.title("TSP Solver - Simulated Annealing")
-        self.root.geometry("900x600")
+        self.root.title("TSP Solver")
+        self.root.geometry("1000x700")
+        self.root.configure(bg="#f0f0f0")
         
         self.graphs = {
             0: ("Built-in (6)", MATRIX_1GRAPH),
@@ -100,104 +102,117 @@ class TSPGui:
         self.setup_ui()
     
     def setup_ui(self):
+        # Главный контейнер
+        main = ttk.Frame(self.root)
+        main.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+        
         # Левая панель - параметры
-        left = ttk.Frame(self.root)
-        left.pack(side=tk.LEFT, fill=tk.BOTH, padx=10, pady=10)
+        left = ttk.LabelFrame(main, text="Параметры", padding=15)
+        left.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 10))
         
         # График
-        ttk.Label(left, text="График:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
+        ttk.Label(left, text="Граф:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
         self.graph_var = tk.IntVar(value=1)
         for key, (name, _) in self.graphs.items():
             ttk.Radiobutton(left, text=name, variable=self.graph_var, value=key).pack(anchor=tk.W)
         
-        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=12)
         
-        # Режим
-        ttk.Label(left, text="Режим охлаждения:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
-        self.mode_var = tk.StringVar(value="classic")
-        ttk.Radiobutton(left, text="Classic (T=T×α)", variable=self.mode_var, value="classic").pack(anchor=tk.W)
-        ttk.Radiobutton(left, text="Cauchy (T=T₀/(1+n))", variable=self.mode_var, value="cauchy").pack(anchor=tk.W)
+        # Режим охлаждения - комбобокс
+        ttk.Label(left, text="Режим охлаждения:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
+        self.mode_var = tk.StringVar(value="Classic")
+        mode_combo = ttk.Combobox(left, textvariable=self.mode_var, 
+                                  values=["Classic", "Cauchy"], state="readonly", width=20)
+        mode_combo.pack(fill=tk.X)
         
-        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=12)
         
         # Параметры
-        ttk.Label(left, text="Параметры:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
+        ttk.Label(left, text="Параметры:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
         
-        ttk.Label(left, text="T_START:").pack(anchor=tk.W)
-        self.t_start = ttk.Entry(left, width=15)
+        ttk.Label(left, text="T_START:").pack(anchor=tk.W, pady=(3, 0))
+        self.t_start = ttk.Entry(left, width=20)
         self.t_start.insert(0, "100.0")
-        self.t_start.pack(fill=tk.X, pady=2)
+        self.t_start.pack(fill=tk.X, pady=(0, 8))
         
-        ttk.Label(left, text="T_MIN:").pack(anchor=tk.W)
-        self.t_min = ttk.Entry(left, width=15)
+        ttk.Label(left, text="T_MIN:").pack(anchor=tk.W, pady=(3, 0))
+        self.t_min = ttk.Entry(left, width=20)
         self.t_min.insert(0, "0.089")
-        self.t_min.pack(fill=tk.X, pady=2)
+        self.t_min.pack(fill=tk.X, pady=(0, 8))
         
-        ttk.Label(left, text="ALPHA (Classic):").pack(anchor=tk.W)
-        self.alpha = ttk.Entry(left, width=15)
+        ttk.Label(left, text="ALPHA:").pack(anchor=tk.W, pady=(3, 0))
+        self.alpha = ttk.Entry(left, width=20)
         self.alpha.insert(0, "0.95")
-        self.alpha.pack(fill=tk.X, pady=2)
+        self.alpha.pack(fill=tk.X, pady=(0, 8))
         
-        ttk.Label(left, text="ITERS_PER_T:").pack(anchor=tk.W)
-        self.iters = ttk.Entry(left, width=15)
+        ttk.Label(left, text="ITERS_PER_T:").pack(anchor=tk.W, pady=(3, 0))
+        self.iters = ttk.Entry(left, width=20)
         self.iters.insert(0, "30")
-        self.iters.pack(fill=tk.X, pady=2)
+        self.iters.pack(fill=tk.X, pady=(0, 12))
         
-        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=12)
         
         # Кнопка запуска
         self.btn = ttk.Button(left, text="▶ Запустить", command=self.run)
         self.btn.pack(fill=tk.X, pady=10)
         
         # Результаты
-        self.result_text = tk.Text(left, height=15, width=35, font=("Courier", 8))
+        result_frame = ttk.LabelFrame(left, text="Результаты", padding=10)
+        result_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        
+        self.result_text = tk.Text(result_frame, height=20, width=30, font=("Courier", 9), 
+                                   relief=tk.FLAT, bg="#ffffff")
         self.result_text.pack(fill=tk.BOTH, expand=True)
         
         # Правая панель - графики
-        self.right = ttk.Frame(self.root)
-        self.right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.right = ttk.LabelFrame(main, text="Графики", padding=10)
+        self.right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
     
     def run(self):
         try:
             graph_idx = self.graph_var.get()
             graph_name, matrix = self.graphs[graph_idx]
-            mode = self.mode_var.get()
+            mode = "classic" if self.mode_var.get() == "Classic" else "cauchy"
             t_start = float(self.t_start.get())
             t_min = float(self.t_min.get())
-            alpha = float(self.alpha.get()) if mode == "classic" else 0.95
+            alpha = float(self.alpha.get())
             iters = int(self.iters.get())
             
             # Запустить алгоритм
             self.btn.config(state=tk.DISABLED)
+            self.result_text.config(state=tk.NORMAL)
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, "⏳ Вычисляю...\n")
             self.root.update()
             
+            start_time = time.time()
             result = simulated_annealing(matrix, mode, t_start, t_min, alpha, iters)
+            elapsed = time.time() - start_time
             
-            # Вывести результаты
-            text = f"График: {graph_name}\n"
-            text += f"Режим: {mode.upper()}\n"
-            text += f"T_START: {t_start}\n"
-            text += f"T_MIN: {t_min}\n"
-            text += f"ALPHA: {alpha}\n"
-            text += f"ITERS: {iters}\n\n"
-            text += f"Начально: {result['initial_cost']:.2f}\n"
-            text += f"Лучше: {result['best_cost']:.2f}\n"
-            imp = (result['initial_cost'] - result['best_cost']) / result['initial_cost'] * 100
-            text += f"Улучшение: {imp:.1f}%\n"
-            text += f"Шагов: {result['steps']}\n"
+            # Вывести результаты (короче)
+            text = f"Граф: {graph_name}\n"
+            text += f"Режим: {self.mode_var.get()}\n"
+            text += f"Время: {elapsed:.2f}с\n\n"
+            text += f"Лучший путь:\n{result['best_cost']:.2f}\n\n"
+            
+            if len(result['best_path']) <= 15:
+                text += f"Маршрут:\n{result['best_path']}"
+            else:
+                text += f"Маршрут:\n{result['best_path'][:10]}...\n({len(result['best_path'])} городов)"
             
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, text)
+            self.result_text.config(state=tk.DISABLED)
             
             # Построить графики
             self.plot_results(result)
             
             self.btn.config(state=tk.NORMAL)
         except Exception as e:
+            self.result_text.config(state=tk.NORMAL)
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, f"Ошибка: {e}")
+            self.result_text.insert(tk.END, f"❌ Ошибка:\n{e}")
+            self.result_text.config(state=tk.DISABLED)
             self.btn.config(state=tk.NORMAL)
     
     def plot_results(self, result):
@@ -205,25 +220,27 @@ class TSPGui:
         for widget in self.right.winfo_children():
             widget.destroy()
         
-        # Создать фигуру
-        fig = Figure(figsize=(5, 5), dpi=80)
-        ax1 = fig.add_subplot(121)
-        ax2 = fig.add_subplot(122)
+        # Создать фигуру с графиками ВЕРТИКАЛЬНО
+        fig = Figure(figsize=(6, 7), dpi=80)
+        ax1 = fig.add_subplot(211)
+        ax2 = fig.add_subplot(212)
         
         steps = list(range(len(result['history_cost'])))
         
         # График 1: Сходимость
-        ax1.plot(steps, result['history_cost'], 'b-', linewidth=1)
-        ax1.set_xlabel('Шаг')
-        ax1.set_ylabel('Стоимость')
-        ax1.set_title('Сходимость')
+        ax1.plot(steps, result['history_cost'], 'b-', linewidth=1.5)
+        ax1.fill_between(steps, result['history_cost'], alpha=0.2)
+        ax1.set_xlabel('Шаг охлаждения')
+        ax1.set_ylabel('Стоимость пути')
+        ax1.set_title('Сходимость алгоритма', fontweight='bold')
         ax1.grid(True, alpha=0.3)
         
         # График 2: Температура
-        ax2.plot(steps, result['history_temp'], 'r-', linewidth=1)
-        ax2.set_xlabel('Шаг')
-        ax2.set_ylabel('T')
-        ax2.set_title('Температура')
+        ax2.plot(steps, result['history_temp'], 'r-', linewidth=1.5)
+        ax2.fill_between(steps, result['history_temp'], alpha=0.15, color='red')
+        ax2.set_xlabel('Шаг охлаждения')
+        ax2.set_ylabel('Температура')
+        ax2.set_title('Охлаждение температуры', fontweight='bold')
         ax2.grid(True, alpha=0.3)
         
         fig.tight_layout()
