@@ -4,7 +4,6 @@ def parse_stp(filename):
     n = 0
     edges = {}
     in_graph = False
-    
     with open(filename, 'r') as f:
         for line in f:
             line = line.strip()
@@ -31,19 +30,10 @@ def parse_stp(filename):
         matrix[u][v] = w
     return matrix
 
-
-print("Парсинг berlin52.stp...")
 berlin52 = parse_stp("berlin52.stp")
-print(f"✓ Готово: {len(berlin52)} вершин\n")
-
-print("Парсинг world666.stp...")
 world666 = parse_stp("world666.stp")
-print(f"✓ Готово: {len(world666)} вершин\n")
 
-print("Создание matrices.py...")
 with open("matrices.py", "w") as f:
     f.write("INF = float('inf')\n\n")
     f.write(f"BERLIN52 = {repr(berlin52)}\n\n")
     f.write(f"WORLD666 = {repr(world666)}\n")
-
-print("✓ matrices.py создан!")
